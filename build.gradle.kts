@@ -37,6 +37,8 @@ dependencies {
     implementation(group = "io.vertx", name = "vertx-web-api-contract")
     implementation(group = "io.vertx", name = "vertx-auth-jwt")
     implementation(group = "io.vertx", name = "vertx-auth-shiro")
+    implementation(group = "io.vertx", name = "vertx-codegen")
+    implementation(group = "io.vertx", name = "vertx-service-proxy")
 
     testImplementation("io.knotx:knotx-junit5")
     testImplementation("io.knotx:knotx-launcher")
@@ -47,6 +49,25 @@ dependencies {
     testImplementation(group = "io.rest-assured", name = "rest-assured", version = "3.3.0")
 //    testImplementation(group = "io.jsonwebtoken", name = "jjwt-jackson", version = "0.10.5")
 
+    annotationProcessor(platform("io.knotx:knotx-dependencies:2.0.0-SNAPSHOT"))
+    annotationProcessor(group = "io.vertx", name = "vertx-codegen")
+    annotationProcessor(group = "io.vertx", name = "vertx-service-proxy", classifier = "processor")
+    annotationProcessor(group = "io.vertx", name = "vertx-rx-java2-gen")
+}
+
+// -----------------------------------------------------------------------------
+// Source sets
+// -----------------------------------------------------------------------------
+sourceSets.named("main") {
+    java.srcDir("src/main/generated")
+}
+
+tasks.named<JavaCompile>("compileJava") {
+    options.annotationProcessorGeneratedSourcesDirectory = file("src/main/generated")
+}
+
+tasks.named<Delete>("clean") {
+    delete.add("src/main/generated")
 }
 
 plugins.withId("java-library") {

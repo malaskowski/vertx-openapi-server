@@ -15,24 +15,24 @@
  */
 package com.github.skejven;
 
+import com.github.skejven.handler.AuthHandlerFactory;
+import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerOptions;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.auth.KeyStoreOptions;
-import io.vertx.ext.auth.jwt.JWTAuthOptions;
-import io.vertx.ext.auth.shiro.ShiroAuthOptions;
 import io.vertx.ext.web.api.contract.RouterFactoryOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.http.HttpServer;
-import io.vertx.reactivex.ext.auth.jwt.JWTAuth;
-import io.vertx.reactivex.ext.auth.shiro.ShiroAuth;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
-import io.vertx.reactivex.ext.web.handler.AuthHandler;
-import io.vertx.reactivex.ext.web.handler.BasicAuthHandler;
-import io.vertx.reactivex.ext.web.handler.JWTAuthHandler;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class OpenAPI3Server extends AbstractVerticle {
 
@@ -40,6 +40,14 @@ public class OpenAPI3Server extends AbstractVerticle {
   private static final Logger LOGGER = LoggerFactory.getLogger("OpenAPI3Server");
 
   private HttpServer server;
+  private ServerOptions options;
+
+  @Override
+  public void init(Vertx vertx, Context context) {
+    super.init(vertx, context);
+    options = new ServerOptions(config());
+    LOGGER.info("Server initialized with options: " + options);
+  }
 
   public void start(Future<Void> future) {
     LOGGER.info("Configuring OpenAPI3Server");
@@ -54,14 +62,19 @@ public class OpenAPI3Server extends AbstractVerticle {
               .setOperationModelKey("openapi_model");
           // Mount the options
           routerFactory.setOptions(factoryOptions);
-          // Add an handlers for operations
-          addHandlerByOperationId(routerFactory, "listBooks");
-          addHandlerByOperationId(routerFactory, "listBooksWithBasicAuth");
-          addHandlerByOperationId(routerFactory, "listBooksWithJwtAuth");
 
-          // Add a security handlers
-          setupBasicAuth(routerFactory);
-          setupJwtAuth(routerFactory);
+          // Register security handlers
+          final Map<String, AuthHandlerFactory> authHandlerFactoriesByType = loadAuthHandlerFactories();
+          options.getSecurityHandlers().forEach(securityHandlerOptions -> {
+            registerAuthHandler(routerFactory,
+                authHandlerFactoriesByType.get(securityHandlerOptions.getType()),
+                securityHandlerOptions);
+          });
+
+          // Add an handlers for operations
+          options.getOperations().forEach(operationOptions -> {
+            addHandlerByOperationId(routerFactory, operationOptions.getOperationId());
+          });
 
           // Now you have to generate the router
           Router router = routerFactory.getRouter();
@@ -84,30 +97,36 @@ public class OpenAPI3Server extends AbstractVerticle {
 
   }
 
-  private void setupBasicAuth(OpenAPI3RouterFactory routerFactory) {
-    JsonObject config = new JsonObject().put("properties_path", "classpath:test-auth.properties");
-    final ShiroAuth shiroAuth = ShiroAuth.create(vertx, new ShiroAuthOptions().setConfig(config));
-
-    final AuthHandler handler = BasicAuthHandler.create(shiroAuth);
-    routerFactory.addSecurityHandler("basicAuthBooks", handler);
-  }
-
-  private void setupJwtAuth(OpenAPI3RouterFactory routerFactory) {
-    final KeyStoreOptions keyStore = new KeyStoreOptions()
-        .setType("jceks")
-        .setPath("keystore.jceks")
-        .setPassword("secret");
-    final JWTAuthOptions config = new JWTAuthOptions().setKeyStore(keyStore);
-
-    final AuthHandler handler = JWTAuthHandler.create(JWTAuth.create(vertx, config));
-    routerFactory.addSecurityHandler("jwtAuthBooks", handler);
+  private void registerAuthHandler(OpenAPI3RouterFactory routerFactory,
+      AuthHandlerFactory authHandlerFactory, SecurityHandlerOptions options) {
+    if (routerFactory != null) {
+      routerFactory.addSecurityHandler(options.getName(),
+          authHandlerFactory.create(vertx, options.getConfig()));
+    } else {
+      throw new IllegalStateException("Factory for " + options + " is not registered!");
+    }
   }
 
   private void addHandlerByOperationId(OpenAPI3RouterFactory routerFactory, String operationId) {
+    LOGGER.info("Registering handler for: " + operationId);
     routerFactory.addHandlerByOperationId(operationId, routingContext -> {
-      LOGGER.info("Request for {}", operationId);
+      LOGGER.info("Request for " + operationId);
       routingContext.response().setStatusMessage("OK").end();
     });
+  }
+
+  private Map<String, AuthHandlerFactory> loadAuthHandlerFactories() {
+    List<AuthHandlerFactory> routingFactories = new ArrayList<>();
+    ServiceLoader.load(AuthHandlerFactory.class)
+        .iterator()
+        .forEachRemaining(routingFactories::add);
+
+    LOGGER.info("Auth handler factory types registered: " +
+        routingFactories.stream().map(AuthHandlerFactory::getType).collect(Collectors
+            .joining(",")));
+
+    return routingFactories.stream()
+        .collect(Collectors.toMap(AuthHandlerFactory::getType, Function.identity()));
   }
 
 }
