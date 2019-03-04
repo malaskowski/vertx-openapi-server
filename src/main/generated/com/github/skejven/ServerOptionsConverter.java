@@ -24,6 +24,11 @@ import java.time.format.DateTimeFormatter;
             obj.setOperations(list);
           }
           break;
+        case "routes":
+          if (member.getValue() instanceof String) {
+            obj.setRoutes((String)member.getValue());
+          }
+          break;
         case "securityHandlers":
           if (member.getValue() instanceof JsonArray) {
             java.util.ArrayList<com.github.skejven.SecurityHandlerOptions> list =  new java.util.ArrayList<>();
@@ -47,6 +52,9 @@ import java.time.format.DateTimeFormatter;
       JsonArray array = new JsonArray();
       obj.getOperations().forEach(item -> array.add(item.toJson()));
       json.put("operations", array);
+    }
+    if (obj.getRoutes() != null) {
+      json.put("routes", obj.getRoutes());
     }
     if (obj.getSecurityHandlers() != null) {
       JsonArray array = new JsonArray();

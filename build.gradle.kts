@@ -40,6 +40,8 @@ dependencies {
     implementation(group = "io.vertx", name = "vertx-codegen")
     implementation(group = "io.vertx", name = "vertx-service-proxy")
 
+    implementation(group = "ch.qos.logback", name = "logback-classic")
+
     testImplementation("io.knotx:knotx-junit5")
     testImplementation("io.knotx:knotx-launcher")
     testImplementation(group = "io.knotx", name = "knotx-launcher", classifier = "tests")
@@ -81,7 +83,7 @@ plugins.withId("java-library") {
     }
 
     tasks.withType<Test>().configureEach {
-        environment("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory")
+        systemProperties(Pair("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory"))
 
         failFast = true
         useJUnitPlatform()

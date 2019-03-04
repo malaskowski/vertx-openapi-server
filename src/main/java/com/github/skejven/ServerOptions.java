@@ -23,6 +23,7 @@ import java.util.List;
 @DataObject(generateConverter = true, publicConverter = false)
 public class ServerOptions {
 
+  private String routes;
   private List<OperationOptions> operations;
   private List<SecurityHandlerOptions> securityHandlers;
 
@@ -36,6 +37,15 @@ public class ServerOptions {
     JsonObject json = new JsonObject();
     ServerOptionsConverter.toJson(this, json);
     return json;
+  }
+
+  public String getRoutes() {
+    return routes;
+  }
+
+  public ServerOptions setRoutes(String routes) {
+    this.routes = routes;
+    return this;
   }
 
   public List<OperationOptions> getOperations() {

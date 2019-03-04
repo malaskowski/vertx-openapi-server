@@ -52,7 +52,7 @@ public class OpenAPI3Server extends AbstractVerticle {
   public void start(Future<Void> future) {
     LOGGER.info("Configuring OpenAPI3Server");
     OpenAPI3RouterFactory
-        .rxCreate(vertx, "routes.yaml")
+        .rxCreate(vertx, options.getRoutes())
         .flatMap(routerFactory -> {
           // Spec loaded with success. router factory contains OpenAPI3RouterFactory
           // Set router factory options.
